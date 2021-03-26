@@ -1,0 +1,3 @@
+[submodule "papyruscs"]
+	path = papyruscs
+	url = https://github.com/hrmorley34/papyruscs.git

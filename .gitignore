@@ -1,0 +1,12 @@
+# built binaries
+papyrusbin/
+
+# world folders
+worlds/
+rendered/
+
+# some stuff I had
+old/
+
+# py cache
+__pycache__/
