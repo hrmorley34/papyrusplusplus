@@ -1,0 +1,35 @@
+name: Example
+world: "./worlds/World"
+dest: "./rendered/World"
+defaultoptions:
+  --htmlfile: index.html
+tasks:
+- --dim: 0 # -> ["--dim", "0"]
+- --dim: 1
+- --dim: 1
+  --limity: 81
+  --profile: Pathways # -> ..., "--profile", "Pathways", ...
+  --notrimceiling: true # -> ..., "--notrimceiling", ...
+  --brillouin_divider: 2.5
+  --brillouin_offset: 82
+- --dim: 2
+spreadsheet:
+  type: gsheet
+  id: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  dimensions:
+    overworld:
+      name: Sheet!A3:A  # a column of names of locations
+      position: Sheet!B3:D  # three columns (x, y, z)
+      check: Sheet!H3:H  # [optional] a column of checkboxes for visibility, coloured
+    nether:
+      name: Sheet!A3:A
+      position: Sheet!E3:G
+      check: Sheet!H3:H
+remote:
+  type: rsync
+  ip: "me@ssh.example.com"
+  path: "/home/me/there"
+webhook:
+  type: discord
+  url: "https://discordapp.com/api/webhooks/.../..."
+  link: "https://example.com"
