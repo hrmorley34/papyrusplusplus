@@ -136,7 +136,7 @@ class PlayerMarker(DictObject):
                 "color": "#ffffff",
                 "visible": True,
             }
-        DictObject.__init__(self, data)
+        self._data = data
 
     def set_color(self, color=None):
         if color is None:
@@ -145,7 +145,7 @@ class PlayerMarker(DictObject):
         self.color = color
 
     def set_uuid_from_name(self):
-        self.uuid = str(UUID(self._hash()))
+        self.uuid = str(UUID(self._hash))
 
 
 class _SpecedParented(DictObject, ABC):
@@ -191,7 +191,7 @@ class Spreadsheet(_SpecedParented):
         assert defi
 
         markerdicts = [d.to_dict() for d in self.get_playermarkers()]
-        with open(defi.world / "map" / "playersData.js", "w") as f:
+        with open(defi.dest / "map" / "playersData.js", "w") as f:
             f.write("var playersData = "
                     + json.dumps({"players": markerdicts}, indent=2))
 

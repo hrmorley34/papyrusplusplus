@@ -22,7 +22,7 @@ def get_colour(d: dict):
 def form_location(values: list) -> list:
     x, y, z = values
     xval = x["effectiveValue"]["numberValue"]
-    yval = y["effectiveValue"].get("numberValue", 0)
+    yval = y.get("effectiveValue", {}).get("numberValue", 0)
     zval = z["effectiveValue"]["numberValue"]
 
     return [xval, yval, zval]
@@ -48,7 +48,7 @@ class GoogleSheet(Spreadsheet):
         defi = self._parent or defi
         assert defi
 
-        markers = {}
+        markers = []
 
         for dname, dspec in self["dimensions"].items():
             ranges = [dspec["name"], dspec["position"]]
@@ -58,20 +58,20 @@ class GoogleSheet(Spreadsheet):
             data = self._fetch_ranges(ranges)
 
             # NOTE: assumes all one sheet
-            names = [o["values"][0]["formattedValue"]
+            names = [o.get("values", [{}])[0].get("formattedValue", "???")
                      for o in data["sheets"][0]["data"][0]["rowData"]]
-            positions = [form_location(r["values"])
+            positions = [form_location(r["values"]) if "values" in r else (0, 0, 0)
                          for r in data["sheets"][0]["data"][1]["rowData"]]
             if "check" in dspec:
                 checks = [o["values"][0]["effectiveValue"].get("boolValue", bool(o["values"][0]["formattedValue"].strip()))
+                          if "values" in o else False
                           for o in data["sheets"][0]["data"][2]["rowData"]]
-                colours = [get_colour(o["values"][0])
+                colours = [get_colour(o["values"][0]) if "values" in o else None
                            for o in data["sheets"][0]["data"][2]["rowData"]]
             else:
                 checks = repeat(True)
                 colours = repeat(None)
 
-            markers[dname] = []
             for n, p, ch, c in zip(names, positions, checks, colours):
                 m = PlayerMarker()
                 m.name, m.position, m.visible = n, p, ch
