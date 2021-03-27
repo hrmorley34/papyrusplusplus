@@ -42,6 +42,7 @@ class Logg(logging.StreamHandler):
     _outcolour = colorama.Style.BRIGHT
     _errcolour = colorama.Style.BRIGHT + colorama.Fore.RED
     _outsuffix = colorama.Style.RESET_ALL
+    _doingdone_active = False
 
     def emit(self, record: logging.LogRecord):
         if record.levelno > 25:
@@ -49,6 +50,10 @@ class Logg(logging.StreamHandler):
         else:
             prefix = self._outcolour
         suffix = self._outsuffix
+
+        if self._doingdone_active:
+            self._doingdone_active = False
+            prefix = "\n" + prefix
 
         # slightly nabbed from logging.StreamHandler
         try:
@@ -82,12 +87,21 @@ def doing_done(
                 handler.release()
             except Exception:
                 pass
+            finally:
+                if isinstance(handler, Logg):
+                    handler._doingdone_active = True
     try:
         yield
     except Exception:
+        for handler in logging.getLogger().handlers:
+            if isinstance(handler, Logg):
+                handler._doingdone_active = False
         loggfunc(failure)
         raise
     else:
+        for handler in logging.getLogger().handlers:
+            if isinstance(handler, Logg):
+                handler._doingdone_active = False
         loggfunc(success)
 
 
@@ -138,14 +152,14 @@ def main(args=None):
                     defi.spreadsheet.write_playermarkers()
 
         if defi.remote:
-            with doing_done(info, "  Uploading to remote"):
+            with doing_done(info, "  Uploading to remote..."):
                 if DRY:
                     print(defi.remote)
                 else:
                     defi.remote.upload()
 
         if defi.webhook:
-            with doing_done(info, "  Pushing to webhook"):
+            with doing_done(info, "  Pushing to webhook..."):
                 if DRY:
                     print(defi.webhook)
                 else:
