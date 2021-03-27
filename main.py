@@ -25,8 +25,17 @@ parser.add_argument("-p", "--papyrus", default=None, type=existing_path,
                     help="Path to PapyrusCs binary")
 
 parser.add_argument("--dry-run", action="store_true", help="Do nothing")
-parser.add_argument("--sheet-only", action="store_true",
-                    help="Generate the markers from a sheet *only*")
+# parser.add_argument("--sheet-only", action="store_true",
+#                     help="Generate the markers from a sheet *only*")
+
+parser.add_argument("--skip-map", action="store_true",
+                    help="Skip map generation")
+parser.add_argument("--skip-sheet", action="store_true",
+                    help="Skip player markers generation")
+parser.add_argument("--skip-remote", action="store_true",
+                    help="Skip remote upload")
+parser.add_argument("--skip-webhook", action="store_true",
+                    help="Skip webhook push")
 
 
 def initialise_output():
@@ -66,6 +75,17 @@ class Logg(logging.StreamHandler):
             self.handleError(record)
 
 
+def _doingdone_end_handle() -> bool:
+    printagain = False
+    for handler in logging.getLogger().handlers:
+        if isinstance(handler, Logg):
+            if handler._doingdone_active:
+                handler._doingdone_active = False
+            else:
+                printagain = True
+    return printagain
+
+
 @contextmanager
 def doing_done(
     loggfunc,
@@ -93,22 +113,22 @@ def doing_done(
     try:
         yield
     except Exception:
-        for handler in logging.getLogger().handlers:
-            if isinstance(handler, Logg):
-                handler._doingdone_active = False
-        loggfunc(failure)
+        if _doingdone_end_handle():
+            loggfunc(starting + " " + failure)
+        else:
+            loggfunc(failure)
         raise
     else:
-        for handler in logging.getLogger().handlers:
-            if isinstance(handler, Logg):
-                handler._doingdone_active = False
-        loggfunc(success)
+        if _doingdone_end_handle():
+            loggfunc(starting + " " + success)
+        else:
+            loggfunc(success)
 
 
 def main(args=None):
     ARGS = parser.parse_args(args)
 
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.INFO)
 
     DRY: bool = ARGS.dry_run
 
@@ -120,6 +140,11 @@ def main(args=None):
     else:
         PAPYRUS = ARGS.papyrus
     debug(f"PapyrusCs path: {PAPYRUS}")
+
+    SKIP_GEN = ARGS.skip_map
+    SKIP_SPREADSHEET = ARGS.skip_sheet
+    SKIP_REMOTE = ARGS.skip_remote
+    SKIP_WEBHOOK = ARGS.skip_webhook
 
     DEFINITIONS = [(file, Definition.from_yaml(file))
                    for file in ARGS.definition]
@@ -136,34 +161,52 @@ def main(args=None):
             info("Current definition: {} ({})".format(
                 defi["name"], file.name))
 
-        info("  Running PapyrusCs")
-        for command in defi.string_commands():
-            info("  - papyruscs " + " ".join(map(str, command)))
-            if not DRY:
-                result = subprocess.run([PAPYRUS, *command])
-                if result.returncode:
-                    raise Exception("An error occured!")
+        if SKIP_GEN:
+            debug("Skipping map generation.")
+        elif not defi.tasks:
+            info("Running PapyrusCs")
+            warning("No tasks listed!")
+        else:
+            info("Running PapyrusCs")
+            for command in defi.string_commands():
+                info("  - papyruscs " + " ".join(map(str, command)))
+                if not DRY:
+                    result = subprocess.run([PAPYRUS, *command])
+                    if result.returncode:
+                        raise Exception("An error occured!")
 
-        if defi.spreadsheet:
-            with doing_done(info, "  Setting playermarkers..."):
+        if SKIP_SPREADSHEET:
+            debug("Skipping spreadsheet conversion")
+        elif defi.spreadsheet:
+            with doing_done(info, "Setting playermarkers..."):
                 if DRY:
                     print(defi.spreadsheet)
                 else:
                     defi.spreadsheet.write_playermarkers()
+        else:
+            debug("No spreadsheet entry; skipping.")
 
-        if defi.remote:
+        if SKIP_REMOTE:
+            debug("Skipping remote upload")
+        elif defi.remote:
             with doing_done(info, "  Uploading to remote..."):
                 if DRY:
                     print(defi.remote)
                 else:
                     defi.remote.upload()
+        else:
+            debug("No remote entry; skipping.")
 
-        if defi.webhook:
+        if SKIP_WEBHOOK:
+            debug("Skipping webhook push")
+        elif defi.webhook:
             with doing_done(info, "  Pushing to webhook..."):
                 if DRY:
                     print(defi.webhook)
                 else:
                     defi.webhook.push()
+        else:
+            debug("No webhook entry; skipping.")
 
 
 if __name__ == "__main__":
