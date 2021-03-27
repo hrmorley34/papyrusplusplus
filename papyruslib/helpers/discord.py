@@ -1,17 +1,23 @@
-import discord
+from discord import Embed
 import requests
+from datetime import datetime
 
 from ..bases import Definition, Webhook
+
+
+TIMEFILE = "chunks.sqlite"
 
 
 class DiscordWebhook(Webhook):
     url: str
     link: str
 
-    def _construct_embed(self, defi: Definition):
-        embed = discord.Embed()
+    def _construct_embed(self, defi: Definition) -> Embed:
+        embed = Embed(title="Map updated!", url=self.link)
 
-        # raise NotImplementedError
+        tfile = (defi.dest / TIMEFILE)
+        if tfile.exists():
+            embed.timestamp = datetime.fromtimestamp(tfile.stat().st_mtime)
 
         return embed
 
