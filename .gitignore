@@ -8,5 +8,8 @@ rendered/
 # some stuff I had
 old/
 
+# venv
+.venv/
+
 # py cache
 __pycache__/
