@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
 from uuid import UUID, uuid4
 from hashlib import md5
-from functools import cache
 from typing import Union, List
 from collections.abc import Mapping, MutableMapping
 import yaml
 import json
 from pathlib import Path
+
+try:
+    from functools import cache
+except ImportError:
+    from functools import lru_cache
+    cache = lru_cache(maxsize=None)
 
 
 _optionstype = Union[list, dict]
