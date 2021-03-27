@@ -2,6 +2,7 @@
 papyrusbin/
 
 # world folders
+specs/
 worlds/
 rendered/
 
