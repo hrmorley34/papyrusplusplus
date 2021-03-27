@@ -40,7 +40,7 @@ class GoogleSheet(Spreadsheet):
         _SpecedParented.__init__(self, data, parent=parent)
         self._gsheets = service.spreadsheets()
 
-    def _fetch_ranges(self, *ranges):
+    def _fetch_ranges(self, ranges: list) -> dict:
         return self._gsheets.get(spreadsheetId=self.id, ranges=ranges, includeGridData=True).execute()
 
     def get_playermarkers(self, defi: Definition = None) -> List[PlayerMarker]:
