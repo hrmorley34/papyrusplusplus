@@ -9,7 +9,15 @@ class RsyncRemote(Remote):
     path: str
 
     def _make_command(self, source: Path) -> list:
-        return ["rsync", "--rsync-path", f"mkdir -p \"{self.path}\" && rsync", "-azrlt", Path(source) / "map", f"{self.ip}:{self.path}"]
+        return [
+            "rsync",
+            # create the directory first, if it doesn't exist
+            "--rsync-path", f"mkdir -p \"{self.path}\" && rsync",
+            "-azrlt",  # archive, compress, recursive, symlinks, preserve file mod times
+            # copy the *contents* (trailing slash) of the map folder
+            "{}/".format(Path(source) / "map"),
+            f"{self.ip}:{self.path}",  # the path on the remote computer
+        ]
 
     def upload(self, defi: Definition = None) -> subprocess.CompletedProcess:
         " Run upload task (calls `subprocess.run` to run `rsync`) "
