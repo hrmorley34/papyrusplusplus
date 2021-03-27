@@ -35,7 +35,7 @@ class GoogleSheet(Spreadsheet):
             raise Exception("No Google Sheets key found; "
                             "set the `GOOGLEAPIKEY` environmental variable")
 
-        service = build("sheets", "v4", developerKey=KEY)
+        service = build("sheets", "v4", developerKey=KEY, cache_discovery=False)
 
         _SpecedParented.__init__(self, data, parent=parent)
         self._gsheets = service.spreadsheets()
