@@ -60,7 +60,7 @@ class GoogleSheet(Spreadsheet):
             # NOTE: assumes all one sheet
             names = [o.get("values", [{}])[0].get("formattedValue", "???")
                      for o in data["sheets"][0]["data"][0]["rowData"]]
-            positions = [form_location(r["values"]) if "values" in r else (0, 0, 0)
+            positions = [form_location(r["values"]) if "values" in r else None
                          for r in data["sheets"][0]["data"][1]["rowData"]]
             if "check" in dspec:
                 checks = [o["values"][0]["effectiveValue"].get("boolValue", bool(o["values"][0]["formattedValue"].strip()))
@@ -73,8 +73,11 @@ class GoogleSheet(Spreadsheet):
                 colours = repeat(None)
 
             for n, p, ch, c in zip(names, positions, checks, colours):
+                if p is None:
+                    continue
                 m = PlayerMarker()
                 m.name, m.position, m.visible = n, p, ch
+                m.dimensionId = dspec.get("id", 0)
                 m.set_uuid_from_name()
                 m.set_color(c)
                 markers.append(m)
