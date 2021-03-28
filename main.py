@@ -21,6 +21,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--definition", required=True, type=argparse.FileType("rb"), action="append",
                     help="YAML definition")
 
+verbg = parser.add_mutually_exclusive_group()
+verbg.add_argument("-v", "--verbose", action="count", dest="verbosity", default=0,
+                   help="Increase verbosity")
+verbg.add_argument("-q", "--quiet", action="store_const", dest="verbosity", const=-1,
+                   help="Only print errors")
+
+
 parser.add_argument("-p", "--papyrus", default=None, type=existing_path,
                     help="Path to PapyrusCs binary")
 
@@ -128,7 +135,7 @@ def doing_done(
 def main(args=None):
     ARGS = parser.parse_args(args)
 
-    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger().setLevel(logging.WARNING - 10*ARGS.verbosity)
 
     DRY: bool = ARGS.dry_run
 
@@ -189,7 +196,7 @@ def main(args=None):
         if SKIP_REMOTE:
             debug("Skipping remote upload")
         elif defi.remote:
-            with doing_done(info, "  Uploading to remote..."):
+            with doing_done(info, "Uploading to remote..."):
                 if DRY:
                     print(defi.remote)
                 else:
@@ -200,7 +207,7 @@ def main(args=None):
         if SKIP_WEBHOOK:
             debug("Skipping webhook push")
         elif defi.webhook:
-            with doing_done(info, "  Pushing to webhook..."):
+            with doing_done(info, "Pushing to webhook..."):
                 if DRY:
                     print(defi.webhook)
                 else:
