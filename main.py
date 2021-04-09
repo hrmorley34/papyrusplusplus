@@ -32,8 +32,8 @@ parser.add_argument("-p", "--papyrus", default=None, type=existing_path,
                     help="Path to PapyrusCs binary")
 
 parser.add_argument("--dry-run", action="store_true", help="Do nothing")
-# parser.add_argument("--sheet-only", action="store_true",
-#                     help="Generate the markers from a sheet *only*")
+parser.add_argument("--sheet-only", action="store_true",
+                    help="Generate the markers from a sheet *only*")
 
 parser.add_argument("--skip-map", action="store_true",
                     help="Skip map generation")
