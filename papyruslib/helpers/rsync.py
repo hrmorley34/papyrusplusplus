@@ -14,6 +14,7 @@ class RsyncRemote(Remote):
             # create the directory first, if it doesn't exist
             "--rsync-path", f"mkdir -p \"{self.path}\" && rsync",
             "-azrlt",  # archive, compress, recursive, symlinks, preserve file mod times
+            "--delete",  # delete extraneous files in destination
             # copy the *contents* (trailing slash) of the map folder
             "{}/".format(Path(source) / "map"),
             f"{self.ip}:{self.path}",  # the path on the remote computer
