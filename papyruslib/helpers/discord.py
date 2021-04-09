@@ -1,6 +1,6 @@
 from discord import Embed
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..bases import Definition, Webhook
 
@@ -17,7 +17,8 @@ class DiscordWebhook(Webhook):
 
         tfile = (defi.dest / TIMEFILE)
         if tfile.exists():
-            embed.timestamp = datetime.fromtimestamp(tfile.stat().st_mtime)
+            embed.timestamp = datetime.fromtimestamp(
+                tfile.stat().st_mtime, tz=timezone.utc)
 
         return embed
 
