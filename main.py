@@ -152,6 +152,7 @@ def main(args=None):
     debug(f"PapyrusCs path: {PAPYRUS}")
 
     if ARGS.sheet_only:
+        SHEET_ONLY = True
         SKIP_GEN = SKIP_WEBHOOK = True
         SKIP_SPREADSHEET = SKIP_REMOTE = False
 
@@ -162,8 +163,10 @@ def main(args=None):
         if ARGS.skip_sheet:
             raise Exception("--skip-sheet breaks --sheet-only")
         if ARGS.skip_remote:
-            raise Exception("--skip-remote breaks --sheet-only")
+            warning("--skip-remote is against --sheet-only")
+            SKIP_REMOTE = True
     else:
+        SHEET_ONLY = False
         SKIP_GEN = ARGS.skip_map
         SKIP_SPREADSHEET = ARGS.skip_sheet
         SKIP_REMOTE = ARGS.skip_remote
@@ -217,7 +220,12 @@ def main(args=None):
         elif defi.remote:
             with doing_done(info, "Uploading to remote..."):
                 if DRY:
-                    info(defi.remote)
+                    if SHEET_ONLY:
+                        info("SHEET ONLY: True -> {}".format(defi.remote))
+                    else:
+                        info(defi.remote)
+                elif SHEET_ONLY:
+                    defi.remote.upload_playersdata()
                 else:
                     defi.remote.upload()
         else:

@@ -214,6 +214,10 @@ class Remote(_SpecedParented):
         " Run upload task (may call `subprocess.run`) "
         pass
 
+    def upload_playersdata(self, defi: "Definition" = None):
+        " [Upload all; can be overwritten by subclass] "
+        return self.upload()
+
 
 class Webhook(_SpecedParented):
     specs: dict = {}
