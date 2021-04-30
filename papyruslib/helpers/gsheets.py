@@ -2,6 +2,7 @@ from itertools import repeat
 import os
 from googleapiclient.discovery import build
 from typing import List
+import logging
 
 from ..bases import _SpecedParented, Spreadsheet, PlayerMarker, Definition
 
@@ -35,7 +36,8 @@ class GoogleSheet(Spreadsheet):
             raise Exception("No Google Sheets key found; "
                             "set the `GOOGLEAPIKEY` environmental variable")
 
-        service = build("sheets", "v4", developerKey=KEY, cache_discovery=False)
+        service = build("sheets", "v4", developerKey=KEY,
+                        cache_discovery=False)
 
         _SpecedParented.__init__(self, data, parent=parent)
         self._gsheets = service.spreadsheets()
@@ -81,6 +83,9 @@ class GoogleSheet(Spreadsheet):
                 m.set_uuid_from_name()
                 m.set_color(c)
                 markers.append(m)
+
+        logging.info("Found {} markers".format(len(markers)))
+
         return markers
 
 

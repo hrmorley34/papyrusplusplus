@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess
+import logging
 
 from ..bases import Remote, Definition
 
@@ -28,6 +29,7 @@ class RsyncRemote(Remote):
         # copy the *contents* (trailing slash) of the map folder
         uplpath = "{}/".format(Path(defi.dest).absolute() / "map")
         command = self._make_command(uplpath)
+        logging.debug(" ".join(map(str, command)))
         result = subprocess.run(command, stdin=None,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode:
@@ -42,6 +44,7 @@ class RsyncRemote(Remote):
         # copy the playersData file only
         uplpath = Path(defi.dest).absolute() / "map" / "playersData.js"
         command = self._make_command(uplpath, "playersData.js")
+        logging.debug(" ".join(map(str, command)))
         result = subprocess.run(command, stdin=None,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode:
