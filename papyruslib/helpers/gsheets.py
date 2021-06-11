@@ -65,7 +65,7 @@ class GoogleSheet(Spreadsheet):
             positions = [form_location(r["values"]) if "values" in r else None
                          for r in data["sheets"][0]["data"][1]["rowData"]]
             if "check" in dspec:
-                checks = [o["values"][0]["effectiveValue"].get("boolValue", bool(o["values"][0]["formattedValue"].strip()))
+                checks = [o["values"][0].get("effectiveValue", {}).get("boolValue", bool(o["values"][0]["formattedValue"].strip()))
                           if "values" in o else False
                           for o in data["sheets"][0]["data"][2]["rowData"]]
                 colours = [get_colour(o["values"][0]) if "values" in o else None
