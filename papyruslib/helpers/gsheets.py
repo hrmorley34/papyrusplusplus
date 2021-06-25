@@ -1,7 +1,7 @@
 from itertools import repeat
 import os
 from googleapiclient.discovery import build
-from typing import List
+from typing import List, Tuple, Union
 import logging
 
 from ..bases import _SpecedParented, Spreadsheet, PlayerMarker, Definition
@@ -20,13 +20,19 @@ def get_colour(d: dict):
         return None
 
 
-def form_location(values: list) -> list:
+def centre_blocks(i: Union[int, float]) -> float:
+    if isinstance(i, int):
+        return i + 0.5
+    return i
+
+
+def form_location(values: Tuple[dict, dict, dict]) -> Tuple[float, float, float]:
     x, y, z = values
     xval = x["effectiveValue"]["numberValue"]
     yval = y.get("effectiveValue", {}).get("numberValue", 0)
     zval = z["effectiveValue"]["numberValue"]
 
-    return [xval, yval, zval]
+    return [centre_blocks(xval), centre_blocks(yval), centre_blocks(zval)]
 
 
 class GoogleSheet(Spreadsheet):

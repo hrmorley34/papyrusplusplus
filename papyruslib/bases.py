@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from uuid import UUID, uuid4
 from hashlib import md5
-from typing import Union, List
+from typing import Tuple, Union, List
 from collections.abc import Mapping, MutableMapping
 import yaml
 import json
@@ -99,7 +99,7 @@ class PlayerMarker(DictObject):
     uuid: str
     name: str
     dimensionId: int
-    position: tuple
+    position: Tuple[float, float, float]
     color: str
     visible: bool
 
