@@ -11,6 +11,7 @@ try:
     from functools import cache
 except ImportError:
     from functools import lru_cache
+
     cache = lru_cache(maxsize=None)
 
 
@@ -140,8 +141,7 @@ class PlayerMarker(DictObject):
 
     def set_color(self, color=None):
         if color is None:
-            color = self.DEFAULT_COLORS[int(
-                self._hash, 16) % len(self.DEFAULT_COLORS)]
+            color = self.DEFAULT_COLORS[int(self._hash, 16) % len(self.DEFAULT_COLORS)]
         self.color = color
 
     def set_uuid_from_name(self):
@@ -183,7 +183,7 @@ class Spreadsheet(_SpecedParented):
 
     @abstractmethod
     def get_playermarkers(self, defi: "Definition" = None) -> List[PlayerMarker]:
-        " Get an array of `PlayerMarker` objects "
+        "Get an array of `PlayerMarker` objects"
         pass
 
     def write_playermarkers(self, defi: "Definition" = None):
@@ -192,8 +192,9 @@ class Spreadsheet(_SpecedParented):
 
         markerdicts = [d.to_dict() for d in self.get_playermarkers()]
         with open(defi.dest / "map" / "playersData.js", "w") as f:
-            f.write("var playersData = "
-                    + json.dumps({"players": markerdicts}, indent=2))
+            f.write(
+                "var playersData = " + json.dumps({"players": markerdicts}, indent=2)
+            )
 
 
 class Remote(_SpecedParented):
@@ -211,11 +212,11 @@ class Remote(_SpecedParented):
 
     @abstractmethod
     def upload(self, defi: "Definition" = None):
-        " Run upload task (may call `subprocess.run`) "
+        "Run upload task (may call `subprocess.run`)"
         pass
 
     def upload_playersdata(self, defi: "Definition" = None):
-        " [Upload all; can be overwritten by subclass] "
+        "[Upload all; can be overwritten by subclass]"
         return self.upload()
 
 
@@ -234,7 +235,7 @@ class Webhook(_SpecedParented):
 
     @abstractmethod
     def push(self, defi: "Definition" = None):
-        " Run push task (may call `requests.post`) "
+        "Run push task (may call `requests.post`)"
         pass
 
 
@@ -277,7 +278,11 @@ class Definition(DictObject):
     @property
     @cache
     def spreadsheet(self) -> Spreadsheet:
-        return Spreadsheet(self["spreadsheet"], parent=self) if self.get("spreadsheet") else None
+        return (
+            Spreadsheet(self["spreadsheet"], parent=self)
+            if self.get("spreadsheet")
+            else None
+        )
 
     remote: Remote
 

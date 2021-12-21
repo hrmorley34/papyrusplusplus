@@ -13,7 +13,8 @@ class RsyncRemote(Remote):
         return [
             "rsync",
             # create the directory first, if it doesn't exist
-            "--rsync-path", f"mkdir -p \"{self.path}\" && rsync",
+            "--rsync-path",
+            f'mkdir -p "{self.path}" && rsync',
             "-azrlt",  # archive, compress, recursive, symlinks, preserve file mod times
             "--delete",  # delete extraneous files in destination
             path,
@@ -22,7 +23,7 @@ class RsyncRemote(Remote):
         ]
 
     def upload(self, defi: Definition = None) -> subprocess.CompletedProcess:
-        " Run upload task (calls `subprocess.run` to run `rsync`) "
+        "Run upload task (calls `subprocess.run` to run `rsync`)"
         defi = self._parent or defi
         assert defi
 
@@ -30,14 +31,17 @@ class RsyncRemote(Remote):
         uplpath = "{}/".format(Path(defi.dest).absolute() / "map")
         command = self._make_command(uplpath)
         logging.debug(" ".join(map(str, command)))
-        result = subprocess.run(command, stdin=None,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(
+            command, stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         if result.returncode:
             raise Exception("Rsync command failed") from None
         return result
 
-    def upload_playersdata(self, defi: Definition = None) -> subprocess.CompletedProcess:
-        " Run upload task (calls `subprocess.run` to run `rsync`) "
+    def upload_playersdata(
+        self, defi: Definition = None
+    ) -> subprocess.CompletedProcess:
+        "Run upload task (calls `subprocess.run` to run `rsync`)"
         defi = self._parent or defi
         assert defi
 
@@ -45,8 +49,9 @@ class RsyncRemote(Remote):
         uplpath = Path(defi.dest).absolute() / "map" / "playersData.js"
         command = self._make_command(uplpath, "playersData.js")
         logging.debug(" ".join(map(str, command)))
-        result = subprocess.run(command, stdin=None,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(
+            command, stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         if result.returncode:
             raise Exception("Rsync command failed") from None
         return result

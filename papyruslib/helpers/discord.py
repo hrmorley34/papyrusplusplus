@@ -15,15 +15,16 @@ class DiscordWebhook(Webhook):
     def _construct_embed(self, defi: Definition) -> Embed:
         embed = Embed(title="Map updated!", url=self.link)
 
-        tfile = (defi.dest / TIMEFILE)
+        tfile = defi.dest / TIMEFILE
         if tfile.exists():
             embed.timestamp = datetime.fromtimestamp(
-                tfile.stat().st_mtime, tz=timezone.utc)
+                tfile.stat().st_mtime, tz=timezone.utc
+            )
 
         return embed
 
     def push(self, defi: Definition = None) -> requests.Response:
-        " Calls the Discord webhook "
+        "Calls the Discord webhook"
         defi = self._parent or defi
         assert defi
 

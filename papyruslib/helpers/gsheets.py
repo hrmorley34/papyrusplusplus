@@ -8,9 +8,9 @@ from ..bases import _SpecedParented, Spreadsheet, PlayerMarker, Definition
 
 
 def hexify(d: dict) -> str:
-    " {red: 1, green: 0.5} -> #ff7f00 "
+    "{red: 1, green: 0.5} -> #ff7f00"
     rgb = d.get("red", 0), d.get("green", 0), d.get("blue", 0)
-    return "#{:02x}{:02x}{:02x}".format(*[int(v*255) for v in rgb])
+    return "#{:02x}{:02x}{:02x}".format(*[int(v * 255) for v in rgb])
 
 
 def get_colour(d: dict):
@@ -39,20 +39,23 @@ class GoogleSheet(Spreadsheet):
     def __init__(self, data: dict, parent: Definition = None):
         KEY = data.get("key", os.environ.get("GOOGLEAPIKEY"))
         if KEY is None:
-            raise Exception("No Google Sheets key found; "
-                            "set the `GOOGLEAPIKEY` environmental variable")
+            raise Exception(
+                "No Google Sheets key found; "
+                "set the `GOOGLEAPIKEY` environmental variable"
+            )
 
-        service = build("sheets", "v4", developerKey=KEY,
-                        cache_discovery=False)
+        service = build("sheets", "v4", developerKey=KEY, cache_discovery=False)
 
         _SpecedParented.__init__(self, data, parent=parent)
         self._gsheets = service.spreadsheets()
 
     def _fetch_ranges(self, ranges: list) -> dict:
-        return self._gsheets.get(spreadsheetId=self.id, ranges=ranges, includeGridData=True).execute()
+        return self._gsheets.get(
+            spreadsheetId=self.id, ranges=ranges, includeGridData=True
+        ).execute()
 
     def get_playermarkers(self, defi: Definition = None) -> List[PlayerMarker]:
-        " Fetch the array of `PlayerMarker` objects "
+        "Fetch the array of `PlayerMarker` objects"
         defi = self._parent or defi
         assert defi
 
@@ -66,16 +69,27 @@ class GoogleSheet(Spreadsheet):
             data = self._fetch_ranges(ranges)
 
             # NOTE: assumes all one sheet
-            names = [o.get("values", [{}])[0].get("formattedValue", "???")
-                     for o in data["sheets"][0]["data"][0]["rowData"]]
-            positions = [form_location(r["values"]) if "values" in r else None
-                         for r in data["sheets"][0]["data"][1]["rowData"]]
+            names = [
+                o.get("values", [{}])[0].get("formattedValue", "???")
+                for o in data["sheets"][0]["data"][0]["rowData"]
+            ]
+            positions = [
+                form_location(r["values"]) if "values" in r else None
+                for r in data["sheets"][0]["data"][1]["rowData"]
+            ]
             if "check" in dspec:
-                checks = [o["values"][0].get("effectiveValue", {}).get("boolValue", bool(o["values"][0]["formattedValue"].strip()))
-                          if "values" in o else False
-                          for o in data["sheets"][0]["data"][2]["rowData"]]
-                colours = [get_colour(o["values"][0]) if "values" in o else None
-                           for o in data["sheets"][0]["data"][2]["rowData"]]
+                checks = [
+                    o["values"][0]
+                    .get("effectiveValue", {})
+                    .get("boolValue", bool(o["values"][0]["formattedValue"].strip()))
+                    if "values" in o
+                    else False
+                    for o in data["sheets"][0]["data"][2]["rowData"]
+                ]
+                colours = [
+                    get_colour(o["values"][0]) if "values" in o else None
+                    for o in data["sheets"][0]["data"][2]["rowData"]
+                ]
             else:
                 checks = repeat(True)
                 colours = repeat(None)

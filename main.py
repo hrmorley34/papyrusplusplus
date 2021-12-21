@@ -18,38 +18,55 @@ def existing_path(p):
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("-f", "--definition", required=True, type=argparse.FileType("rb"), action="append",
-                    help="YAML definition")
+parser.add_argument(
+    "-f",
+    "--definition",
+    required=True,
+    type=argparse.FileType("rb"),
+    action="append",
+    help="YAML definition",
+)
 
 verbg = parser.add_mutually_exclusive_group()
-verbg.add_argument("-v", "--verbose", action="count", dest="verbosity", default=0,
-                   help="Increase verbosity")
-verbg.add_argument("-q", "--quiet", action="store_const", dest="verbosity", const=-2,
-                   help="Only print errors")
+verbg.add_argument(
+    "-v",
+    "--verbose",
+    action="count",
+    dest="verbosity",
+    default=0,
+    help="Increase verbosity",
+)
+verbg.add_argument(
+    "-q",
+    "--quiet",
+    action="store_const",
+    dest="verbosity",
+    const=-2,
+    help="Only print errors",
+)
 
 
-parser.add_argument("-p", "--papyrus", default=None, type=existing_path,
-                    help="Path to PapyrusCs binary")
+parser.add_argument(
+    "-p", "--papyrus", default=None, type=existing_path, help="Path to PapyrusCs binary"
+)
 
 parser.add_argument("--dry-run", action="store_true", help="Do nothing")
-parser.add_argument("--sheet-only", action="store_true",
-                    help="Generate the markers from a sheet *only*")
+parser.add_argument(
+    "--sheet-only", action="store_true", help="Generate the markers from a sheet *only*"
+)
 
-parser.add_argument("--skip-map", action="store_true",
-                    help="Skip map generation")
-parser.add_argument("--skip-sheet", action="store_true",
-                    help="Skip player markers generation")
-parser.add_argument("--skip-remote", action="store_true",
-                    help="Skip remote upload")
-parser.add_argument("--skip-webhook", action="store_true",
-                    help="Skip webhook push")
+parser.add_argument("--skip-map", action="store_true", help="Skip map generation")
+parser.add_argument(
+    "--skip-sheet", action="store_true", help="Skip player markers generation"
+)
+parser.add_argument("--skip-remote", action="store_true", help="Skip remote upload")
+parser.add_argument("--skip-webhook", action="store_true", help="Skip webhook push")
 
 
 def initialise_output():
     colorama.init()
     LOGG = Logg()
-    logging.basicConfig(
-        handlers=[LOGG], level=logging.INFO, format="%(message)s")
+    logging.basicConfig(handlers=[LOGG], level=logging.INFO, format="%(message)s")
 
     return LOGG
 
@@ -97,10 +114,8 @@ def _doingdone_end_handle() -> bool:
 def doing_done(
     loggfunc,
     starting: str,
-    success: str = "{}done{}.".format(
-        colorama.Fore.LIGHTGREEN_EX, colorama.Fore.RESET),
-    failure: str = "{}error{}.".format(
-        colorama.Fore.RED, colorama.Fore.RESET),
+    success: str = "{}done{}.".format(colorama.Fore.LIGHTGREEN_EX, colorama.Fore.RESET),
+    failure: str = "{}error{}.".format(colorama.Fore.RED, colorama.Fore.RESET),
 ):
     try:
         for handler in logging.getLogger().handlers:
@@ -140,13 +155,16 @@ def main(args=None):
     if DRY and ARGS.verbosity >= 0:
         logging.getLogger().setLevel(logging.DEBUG)
     else:
-        logging.getLogger().setLevel(logging.INFO - 10*ARGS.verbosity)
+        logging.getLogger().setLevel(logging.INFO - 10 * ARGS.verbosity)
 
     if ARGS.papyrus is None:
         # `this directory`/papyruscs/PapyrusCs(.exe)
         binsuffix = ".exe" if sys.platform.lower().startswith("win") else ""
-        PAPYRUS = ((Path(sys.argv[0]).parents[0] / "papyrusbin" / "PapyrusCs")
-                   .with_suffix(binsuffix).absolute())
+        PAPYRUS = (
+            (Path(sys.argv[0]).parents[0] / "papyrusbin" / "PapyrusCs")
+            .with_suffix(binsuffix)
+            .absolute()
+        )
     else:
         PAPYRUS = ARGS.papyrus
     debug(f"PapyrusCs path: {PAPYRUS}")
@@ -172,8 +190,7 @@ def main(args=None):
         SKIP_REMOTE = ARGS.skip_remote
         SKIP_WEBHOOK = ARGS.skip_webhook
 
-    DEFINITIONS = [(file, Definition.from_yaml(file))
-                   for file in ARGS.definition]
+    DEFINITIONS = [(file, Definition.from_yaml(file)) for file in ARGS.definition]
     defi: Definition
 
     for file, defi in DEFINITIONS:
@@ -185,8 +202,7 @@ def main(args=None):
 
     for file, defi in DEFINITIONS:
         if "name" in defi:
-            info("Current definition: {} ({})".format(
-                defi["name"], file.name))
+            info("Current definition: {} ({})".format(defi["name"], file.name))
         else:
             info("Current definition: {}".format(file.name))
 
