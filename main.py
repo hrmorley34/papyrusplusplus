@@ -1,66 +1,158 @@
 #!/usr/bin/env python3
 import argparse
-from pathlib import Path
-from papyruslib.bases import Definition
-import subprocess
 import colorama
-import logging
-from logging import debug, info, warning, error
-import sys
 from contextlib import contextmanager
+import logging
+from logging import debug, info, warning
+from pathlib import Path
+import subprocess
+import sys
+from typing import Any, Callable, List, Optional, TextIO, Tuple
+import yaml
+
+from papyruslib.bases import Definition
 
 
-def existing_path(p):
-    p = Path(p)
-    assert p.exists()
-    return p
+def existing_path(p: str) -> Path:
+    path = Path(p)
+    if not path.exists():
+        raise Exception
+    return path
 
 
-parser = argparse.ArgumentParser()
+def create_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
 
-parser.add_argument(
-    "-f",
-    "--definition",
-    required=True,
-    type=argparse.FileType("rb"),
-    action="append",
-    help="YAML definition",
-)
+    parser.add_argument(
+        "-f",
+        "--definition",
+        required=True,
+        type=existing_path,
+        action="append",
+        help="YAML definition",
+    )
 
-verbg = parser.add_mutually_exclusive_group()
-verbg.add_argument(
-    "-v",
-    "--verbose",
-    action="count",
-    dest="verbosity",
-    default=0,
-    help="Increase verbosity",
-)
-verbg.add_argument(
-    "-q",
-    "--quiet",
-    action="store_const",
-    dest="verbosity",
-    const=-2,
-    help="Only print errors",
-)
+    verbg = parser.add_mutually_exclusive_group()
+    verbg.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        dest="verbosity",
+        default=0,
+        help="Increase verbosity",
+    )
+    verbg.add_argument(
+        "-q",
+        "--quiet",
+        action="store_const",
+        dest="verbosity",
+        const=-2,
+        help="Only print errors",
+    )
+
+    parser.add_argument(
+        "-p",
+        "--papyrus",
+        default=None,
+        type=existing_path,
+        help="Path to PapyrusCs binary",
+    )
+
+    parser.add_argument("--dry-run", action="store_true", help="Do nothing")
+    parser.add_argument(
+        "--sheet-only",
+        action="store_true",
+        help="Generate the markers from a sheet *only*",
+    )
+
+    parser.add_argument("--skip-map", action="store_true", help="Skip map generation")
+    parser.add_argument(
+        "--skip-sheet", action="store_true", help="Skip player markers generation"
+    )
+    parser.add_argument("--skip-remote", action="store_true", help="Skip remote upload")
+    parser.add_argument("--skip-webhook", action="store_true", help="Skip webhook push")
+
+    return parser
 
 
-parser.add_argument(
-    "-p", "--papyrus", default=None, type=existing_path, help="Path to PapyrusCs binary"
-)
+class ArgNamespace(argparse.ArgumentParser):
+    definition: List[Path]
+    verbosity: int
 
-parser.add_argument("--dry-run", action="store_true", help="Do nothing")
-parser.add_argument(
-    "--sheet-only", action="store_true", help="Generate the markers from a sheet *only*"
-)
+    papyrus: Path
 
-parser.add_argument("--skip-map", action="store_true", help="Skip map generation")
-parser.add_argument(
-    "--skip-sheet", action="store_true", help="Skip player markers generation"
-)
-parser.add_argument("--skip-remote", action="store_true", help="Skip remote upload")
-parser.add_argument("--skip-webhook", action="store_true", help="Skip webhook push")
+    dry_run: bool
+    sheet_only: bool
+
+    skip_map: bool
+    skip_sheet: bool
+    skip_remote: bool
+    skip_webhook: bool
+
+
+class Config:
+    dry_run: bool
+    papyrus: Path
+
+    sheet_only: bool
+    skip_map: bool
+    skip_webhook: bool
+    skip_sheet: bool
+    skip_remote: bool
+
+    definitions: List[Tuple[Path, Definition]]
+
+    @classmethod
+    def from_namespace(cls, args: ArgNamespace) -> "Config":
+        self = cls()
+
+        self.dry_run = args.dry_run
+
+        if self.dry_run and args.verbosity >= 0:
+            logging.getLogger().setLevel(logging.DEBUG)
+        else:
+            logging.getLogger().setLevel(logging.INFO - 10 * args.verbosity)
+
+        if args.papyrus is None:
+            # `this directory`/papyruscs/PapyrusCs(.exe)
+            binsuffix = ".exe" if sys.platform.lower().startswith("win") else ""
+            self.papyrus = (
+                (Path(sys.argv[0]).parents[0] / "papyrusbin" / "PapyrusCs")
+                .with_suffix(binsuffix)
+                .absolute()
+            )
+        else:
+            self.papyrus = args.papyrus
+        debug(f"PapyrusCs path: {self.papyrus}")
+
+        if args.sheet_only:
+            self.sheet_only = True
+            self.skip_map = self.skip_webhook = True
+            self.skip_sheet = self.skip_remote = False
+
+            if args.skip_map:
+                warning("--skip-map implied by --sheet-only")
+            if args.skip_webhook:
+                warning("--skip-webhook implied by --sheet-only")
+            if args.skip_sheet:
+                raise Exception("--skip-sheet breaks --sheet-only")
+            if args.skip_remote:
+                warning("--skip-remote is against --sheet-only")
+                self.skip_remote = True
+        else:
+            self.sheet_only = False
+            self.skip_map = args.skip_map
+            self.skip_sheet = args.skip_sheet
+            self.skip_remote = args.skip_remote
+            self.skip_webhook = args.skip_webhook
+
+        self.definitions = []
+        for path in args.definition:
+            with open(path, "rb") as file:
+                defi = Definition.parse_obj(yaml.load(file, yaml.SafeLoader))
+            self.definitions.append((path, defi))
+
+        return self
 
 
 def initialise_output():
@@ -75,7 +167,9 @@ class Logg(logging.StreamHandler):
     _outcolour = colorama.Style.BRIGHT
     _errcolour = colorama.Style.BRIGHT + colorama.Fore.RED
     _outsuffix = colorama.Style.RESET_ALL
-    _doingdone_active = False
+    doingdone_active = False
+
+    stream: TextIO
 
     def emit(self, record: logging.LogRecord):
         if record.levelno > 25:
@@ -84,8 +178,8 @@ class Logg(logging.StreamHandler):
             prefix = self._outcolour
         suffix = self._outsuffix
 
-        if self._doingdone_active:
-            self._doingdone_active = False
+        if self.doingdone_active:
+            self.doingdone_active = False
             prefix = "\n" + prefix
 
         # slightly nabbed from logging.StreamHandler
@@ -103,8 +197,8 @@ def _doingdone_end_handle() -> bool:
     printagain = False
     for handler in logging.getLogger().handlers:
         if isinstance(handler, Logg):
-            if handler._doingdone_active:
-                handler._doingdone_active = False
+            if handler.doingdone_active:
+                handler.doingdone_active = False
             else:
                 printagain = True
     return printagain
@@ -112,26 +206,28 @@ def _doingdone_end_handle() -> bool:
 
 @contextmanager
 def doing_done(
-    loggfunc,
+    loggfunc: Callable[[Any], Any],
     starting: str,
     success: str = "{}done{}.".format(colorama.Fore.LIGHTGREEN_EX, colorama.Fore.RESET),
     failure: str = "{}error{}.".format(colorama.Fore.RED, colorama.Fore.RESET),
 ):
     try:
         for handler in logging.getLogger().handlers:
-            handler.terminator = ""
+            if isinstance(handler, logging.StreamHandler):
+                handler.terminator = ""
             handler.acquire()
         loggfunc(starting + " ")
     finally:
         for handler in logging.getLogger().handlers:
             try:
-                handler.terminator = "\n"
+                if isinstance(handler, logging.StreamHandler):
+                    handler.terminator = "\n"
                 handler.release()
             except Exception:
                 pass
             finally:
                 if isinstance(handler, Logg):
-                    handler._doingdone_active = True
+                    handler.doingdone_active = True
     try:
         yield
     except Exception:
@@ -147,111 +243,69 @@ def doing_done(
             loggfunc(success)
 
 
-def main(args=None):
-    ARGS = parser.parse_args(args)
+def main(args: Optional[List[str]] = None):
+    ARGS = create_parser().parse_args(args, ArgNamespace())
+    CONFIG = Config.from_namespace(ARGS)
 
-    DRY: bool = ARGS.dry_run
-
-    if DRY and ARGS.verbosity >= 0:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.INFO - 10 * ARGS.verbosity)
-
-    if ARGS.papyrus is None:
-        # `this directory`/papyruscs/PapyrusCs(.exe)
-        binsuffix = ".exe" if sys.platform.lower().startswith("win") else ""
-        PAPYRUS = (
-            (Path(sys.argv[0]).parents[0] / "papyrusbin" / "PapyrusCs")
-            .with_suffix(binsuffix)
-            .absolute()
-        )
-    else:
-        PAPYRUS = ARGS.papyrus
-    debug(f"PapyrusCs path: {PAPYRUS}")
-
-    if ARGS.sheet_only:
-        SHEET_ONLY = True
-        SKIP_GEN = SKIP_WEBHOOK = True
-        SKIP_SPREADSHEET = SKIP_REMOTE = False
-
-        if ARGS.skip_map:
-            warning("--skip-map implied by --sheet-only")
-        if ARGS.skip_webhook:
-            warning("--skip-webhook implied by --sheet-only")
-        if ARGS.skip_sheet:
-            raise Exception("--skip-sheet breaks --sheet-only")
-        if ARGS.skip_remote:
-            warning("--skip-remote is against --sheet-only")
-            SKIP_REMOTE = True
-    else:
-        SHEET_ONLY = False
-        SKIP_GEN = ARGS.skip_map
-        SKIP_SPREADSHEET = ARGS.skip_sheet
-        SKIP_REMOTE = ARGS.skip_remote
-        SKIP_WEBHOOK = ARGS.skip_webhook
-
-    DEFINITIONS = [(file, Definition.from_yaml(file)) for file in ARGS.definition]
     defi: Definition
 
-    for file, defi in DEFINITIONS:
-        defi._cache_all()
-    if len(DEFINITIONS) == 1:
+    if len(CONFIG.definitions) == 1:
         debug("Loaded 1 definition")
     else:
-        debug("Loaded {} definitions".format(len(DEFINITIONS)))
+        debug("Loaded {} definitions".format(len(CONFIG.definitions)))
 
-    for file, defi in DEFINITIONS:
-        if "name" in defi:
-            info("Current definition: {} ({})".format(defi["name"], file.name))
+    for file, defi in CONFIG.definitions:
+        if defi.name:
+            info("Current definition: {} ({})".format(defi.name, file.name))
         else:
             info("Current definition: {}".format(file.name))
 
-        if SKIP_GEN:
+        if CONFIG.skip_map:
             debug("Skipping map generation.")
         elif not defi.tasks:
             info("Running PapyrusCs")
             warning("No tasks listed!")
         else:
             info("Running PapyrusCs")
-            for command in defi.string_commands():
+            for command in defi.strung_commands:
                 info("  - papyruscs " + " ".join(map(str, command)))
-                if not DRY:
-                    result = subprocess.run([PAPYRUS, *command])
+                if not CONFIG.dry_run:
+                    result = subprocess.run([CONFIG.papyrus, *command])
                     if result.returncode:
                         raise Exception("An error occured!")
 
-        if SKIP_SPREADSHEET:
+        if CONFIG.skip_sheet:
             debug("Skipping spreadsheet conversion")
         elif defi.spreadsheet:
             with doing_done(info, "Setting playermarkers..."):
-                if DRY:
+                if CONFIG.dry_run:
                     info(defi.spreadsheet)
                 else:
                     defi.spreadsheet.write_playermarkers()
         else:
             debug("No spreadsheet entry; skipping.")
 
-        if SKIP_REMOTE:
+        if CONFIG.skip_remote:
             debug("Skipping remote upload")
         elif defi.remote:
             with doing_done(info, "Uploading to remote..."):
-                if DRY:
-                    if SHEET_ONLY:
+                if CONFIG.dry_run:
+                    if CONFIG.sheet_only:
                         info("SHEET ONLY: True -> {}".format(defi.remote))
                     else:
                         info(defi.remote)
-                elif SHEET_ONLY:
+                elif CONFIG.sheet_only:
                     defi.remote.upload_playersdata()
                 else:
                     defi.remote.upload()
         else:
             debug("No remote entry; skipping.")
 
-        if SKIP_WEBHOOK:
+        if CONFIG.skip_webhook:
             debug("Skipping webhook push")
         elif defi.webhook:
             with doing_done(info, "Pushing to webhook..."):
-                if DRY:
+                if CONFIG.dry_run:
                     info(defi.webhook)
                 else:
                     defi.webhook.push()

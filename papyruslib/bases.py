@@ -1,110 +1,43 @@
 from abc import ABC, abstractmethod
-from uuid import UUID, uuid4
+from collections.abc import Mapping
+from functools import lru_cache
 from hashlib import md5
-from typing import Tuple, Union, List
-from collections.abc import Mapping, MutableMapping
-import yaml
 import json
 from pathlib import Path
+from pydantic import BaseModel
+from pydantic.class_validators import validator
+from pydantic.fields import Field, PrivateAttr
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+    List,
+)
+from uuid import UUID, uuid4
 
-try:
-    from functools import cache
-except ImportError:
-    from functools import lru_cache
-
-    cache = lru_cache(maxsize=None)
-
-
-_optionstype = Union[list, dict]
-
-
-class DictObject(MutableMapping):
-    _data: dict
-    _hash: int
-
-    def __init__(self, data: dict):
-        self._data = data
-        self._hash = int(uuid4())
-
-    def __hash__(self):
-        return getattr(self, "_hash", int(uuid4()))
-
-    def __repr__(self):
-        return type(self).__name__ + repr(self._data)
-
-    def _repr_pretty_(self, p, cycle):
-        if cycle:
-            p.text(type(self).__name__ + "{...}")
-        else:
-            with p.group(2, type(self).__name__ + "{", "}"):
-                for idx, (key, item) in enumerate(self._data.items()):
-                    if idx:
-                        p.text(",")
-                        p.breakable()
-                    else:
-                        p.breakable("")
-                    p.pretty(key)
-                    p.text(": ")
-                    p.pretty(item)
-
-    def __getattr__(self, key):
-        try:
-            return object.__getattr__(self, key)
-        except AttributeError:
-            try:
-                return self[key]
-            except KeyError:
-                pass
-            raise  # reraise AttributeError
-
-    def __setattr__(self, key, value):
-        if key[0] == "_":
-            return object.__setattr__(self, key, value)
-        self[key] = value
-
-    def __delattr__(self, key):
-        if key[0] == "_":
-            return object.__delattr__(self, key)
-        del self[key]
-
-    def __getitem__(self, key):
-        return self._data[key]
-
-    def __setitem__(self, key, value):
-        self._data[key] = value
-
-    def __delitem__(self, key):
-        del self._data[key]
-
-    def __eq__(self, obj):
-        if isinstance(obj, DictObject):
-            return self._data == obj._data
-        elif self._data == obj:
-            return True
-        return NotImplemented
-
-    def __dir__(self):
-        return set(object.__dir__(self)) | set(self._data.keys())
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def __len__(self):
-        return len(self._data)
-
-    def to_dict(self):
-        return self._data
+from pydantic.types import conlist
 
 
-class PlayerMarker(DictObject):
-    uuid: str
-    name: str
-    dimensionId: int
-    position: Tuple[float, float, float]
-    color: str
-    visible: bool
+cache = lru_cache(maxsize=None)
 
-    DEFAULT_COLORS = (
+
+class PlayerMarker(BaseModel):
+    uuid: Optional[str] = Field(None)
+    name: Optional[str] = Field(None)
+    dimensionId: int = Field(...)
+    position: Tuple[float, float, float] = Field(...)
+    color: Optional[str] = Field(None)
+    visible: bool = Field(True)
+
+    class Config:
+        extra = "forbid"
+
+    DEFAULT_COLORS: ClassVar[Tuple[str, ...]] = (
         # "#000000",
         "#0000AA",
         "#00AA00",
@@ -124,184 +57,175 @@ class PlayerMarker(DictObject):
     )
 
     @property
-    def _hash(self):
-        return md5((self.name or self.uuid).encode("utf-8")).hexdigest()
+    def _hash(self) -> bytes:
+        value = self.uuid
+        if value is None:
+            value = self.name
+        assert value is not None
+        return md5(value.encode("utf-8")).digest()
 
-    def __init__(self, data: dict = None):
-        if data is None:
-            data = {
-                "uuid": str(uuid4()),
-                "name": None,
-                "dimensionId": 0,
-                "position": (0, 0, 0),
-                "color": "#ffffff",
-                "visible": True,
-            }
-        self._data = data
+    @classmethod
+    def new(cls) -> "PlayerMarker":
+        return cls(
+            uuid=str(uuid4()),
+            name=None,
+            dimensionId=0,
+            position=(0.0, 0.0, 0.0),
+            color="#ffffff",
+            visible=True,
+        )
 
-    def set_color(self, color=None):
+    def set_color(self, color: Optional[str] = None) -> None:
         if color is None:
             color = self.DEFAULT_COLORS[int(self._hash, 16) % len(self.DEFAULT_COLORS)]
         self.color = color
 
-    def set_uuid_from_name(self):
-        self.uuid = str(UUID(self._hash))
+    def set_uuid_from_name(self) -> None:
+        assert self.name is not None
+        self.uuid = str(UUID(bytes=self._hash))
 
 
-class _SpecedParented(DictObject, ABC):
-    specs: dict
-    type: str
+class SpecedParented(BaseModel):
+    specs: ClassVar[Dict[str, Type["SpecedParented"]]]
+    spec_base: ClassVar[bool]
 
-    def __new__(cls, data: dict, *args, **kwargs):
-        if cls is Spreadsheet:
-            if data["type"] in cls.specs:
-                subcls = cls.specs[data["type"]]
-                return object.__new__(subcls)
+    type: str = Field(...)
+    _parent: Optional["Definition"] = PrivateAttr(None)
+
+    class Config:
+        extra = "forbid"
+        underscore_attrs_are_private = True
+
+    def __init_subclass__(
+        cls, spec_base: bool = False, spec_name: Optional[str] = None
+    ) -> None:
+        cls.spec_base = spec_base
+        if spec_base:
+            cls.specs = {}
+        if spec_name is not None:
+            cls.specs[spec_name] = cls
+
+        return super().__init_subclass__()
+
+    def __new__(cls, *, type: str, **data: Any) -> "SpecedParented":
+        if cls.spec_base:
+            if type in cls.specs:
+                subcls = cls.specs[type]
+                return super().__new__(subcls)
             else:
                 raise Exception("Cannot find type {}".format(data["type"]))
         else:
-            return object.__new__(cls)
+            return super().__new__(cls)
 
-    def __init__(self, data: dict, parent: "Definition" = None):
-        self._data = data
-        self._hash = int(uuid4())
-        self._parent = parent
+    def get_definition(self, defi: Optional["Definition"] = None) -> "Definition":
+        if defi is not None:
+            return defi
+        if self._parent is not None:
+            return self._parent
+        raise Exception("No definition supplied")
+
+    def set_definition(self, defi: "Definition") -> None:
+        self._parent = defi
 
 
-class Spreadsheet(_SpecedParented):
-    specs: dict = {}
-
-    def __new__(cls, data: dict, *args, **kwargs):
-        if cls is Spreadsheet:
-            if data["type"] in cls.specs:
-                subcls = cls.specs[data["type"]]
-                return object.__new__(subcls)
-            else:
-                raise Exception("Cannot find type {}".format(data["type"]))
-        else:
-            return object.__new__(cls)
-
+class Spreadsheet(SpecedParented, ABC, spec_base=True):
     @abstractmethod
-    def get_playermarkers(self, defi: "Definition" = None) -> List[PlayerMarker]:
+    def get_playermarkers(
+        self, defi: Optional["Definition"] = None
+    ) -> List[PlayerMarker]:
         "Get an array of `PlayerMarker` objects"
         pass
 
-    def write_playermarkers(self, defi: "Definition" = None):
-        defi = self._parent or defi
-        assert defi
+    def write_playermarkers(self, defi: Optional["Definition"] = None) -> None:
+        defi = self.get_definition(defi)
 
-        markerdicts = [d.to_dict() for d in self.get_playermarkers()]
+        markerdicts = [d.dict() for d in self.get_playermarkers(defi)]
         with open(defi.dest / "map" / "playersData.js", "w") as f:
             f.write(
                 "var playersData = " + json.dumps({"players": markerdicts}, indent=2)
             )
 
 
-class Remote(_SpecedParented):
-    specs: dict = {}
-
-    def __new__(cls, data: dict, *args, **kwargs):
-        if cls is Remote:
-            if data["type"] in cls.specs:
-                subcls = cls.specs[data["type"]]
-                return object.__new__(subcls)
-            else:
-                raise Exception("Cannot find type {}".format(data["type"]))
-        else:
-            return object.__new__(cls)
-
+class Remote(SpecedParented, ABC, spec_base=True):
     @abstractmethod
-    def upload(self, defi: "Definition" = None):
+    def upload(self, defi: Optional["Definition"] = None) -> None:
         "Run upload task (may call `subprocess.run`)"
         pass
 
-    def upload_playersdata(self, defi: "Definition" = None):
+    def upload_playersdata(self, defi: Optional["Definition"] = None) -> None:
         "[Upload all; can be overwritten by subclass]"
-        return self.upload()
+        raise NotImplementedError
 
 
-class Webhook(_SpecedParented):
-    specs: dict = {}
-
-    def __new__(cls, data: dict, *args, **kwargs):
-        if cls is Webhook:
-            if data["type"] in cls.specs:
-                subcls = cls.specs[data["type"]]
-                return object.__new__(subcls)
-            else:
-                raise Exception("Cannot find type {}".format(data["type"]))
-        else:
-            return object.__new__(cls)
-
+class Webhook(SpecedParented, ABC, spec_base=True):
     @abstractmethod
-    def push(self, defi: "Definition" = None):
+    def push(self, defi: Optional["Definition"] = None) -> None:
         "Run push task (may call `requests.post`)"
         pass
 
 
-def iterable_to_options(obj: _optionstype) -> list:
+_optionstype = Union[List[Any], Dict[str, Any]]
+
+
+def iterable_to_options(obj: Union[_optionstype, Any]) -> List[str]:
     if isinstance(obj, Mapping):
-        olist = []
+        olist: List[str] = []
         for k, v in obj.items():
             olist.append(str(k))
             if not any(v is c for c in [None, False, True]):
                 olist.append(str(v))
         return olist
-    return [str(v) for v in obj]
+    elif isinstance(obj, Sequence):
+        return [str(v) for v in obj]
+    else:
+        raise ValueError()
 
 
-class Definition(DictObject):
-    name: str
+class OptionsType(List[str]):
+    @classmethod
+    def __get_validators__(cls):
+        yield iterable_to_options
+
+    @classmethod
+    def __modify_schema__(cls, field_schema: Dict[str, Any]):
+        # __modify_schema__ should mutate the dict it receives in place,
+        # the returned value will be ignored
+        field_schema.update(anyOf=[{"type": "array", "items": {}}, {"type": "object"}])
+
+
+TaskList = conlist(OptionsType, min_items=1)
+
+
+class Definition(BaseModel):
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+
+        for obj in (self.spreadsheet, self.remote, self.webhook):
+            if obj is not None:
+                obj.set_definition(self)
+
+    name: Optional[str]
 
     world: Path
-
-    @property
-    def world(self):
-        return Path(self["world"])
-
     dest: Path
 
     @property
-    def dest(self):
-        return Path(self["dest"])
+    def base_args(self) -> List[str]:
+        return ["--world", str(self.world), "--output", str(self.dest)]
 
-    defaultoptions: _optionstype
-    tasks: List[_optionstype]
+    defaultoptions: OptionsType = Field(default_factory=list)
+    validator("defaultoptions", allow_reuse=True)(iterable_to_options)
 
-    def string_commands(self) -> List[List[str]]:
-        start = ["--world", self.world, "--output", self.dest]
-        start += iterable_to_options(self.get("defaultoptions", {}))
-        return [start + iterable_to_options(op) for op in self["tasks"]]
-
-    spreadsheet: Spreadsheet
+    tasks: TaskList = Field(...)
+    validator("tasks", allow_reuse=True)(iterable_to_options)
 
     @property
-    @cache
-    def spreadsheet(self) -> Spreadsheet:
-        return (
-            Spreadsheet(self["spreadsheet"], parent=self)
-            if self.get("spreadsheet")
-            else None
-        )
+    def strung_commands(self) -> List[List[str]]:
+        return [self.base_args + self.defaultoptions + op for op in self.tasks]
 
-    remote: Remote
+    spreadsheet: Optional[Spreadsheet]
+    remote: Optional[Remote]
+    webhook: Optional[Webhook]
 
-    @property
-    @cache
-    def remote(self) -> Remote:
-        return Remote(self["remote"], parent=self) if self.get("remote") else None
-
-    webhook: Webhook
-
-    @property
-    @cache
-    def webhook(self) -> Webhook:
-        return Webhook(self["webhook"], parent=self) if self.get("webhook") else None
-
-    @classmethod
-    def from_yaml(cls, yamltext: str, loader=yaml.SafeLoader):
-        return cls(yaml.load(yamltext, Loader=loader))
-
-    def _cache_all(self):
-        # get each one, to cache it
-        self.spreadsheet, self.remote, self.webhook
+    class Config:
+        extra = "forbid"
