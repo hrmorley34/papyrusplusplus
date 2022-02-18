@@ -113,7 +113,7 @@ class SpecedParented(BaseModel):
                 subcls = cls.specs[type]
                 return super().__new__(subcls)
             else:
-                raise Exception("Cannot find type {}".format(data["type"]))
+                raise Exception("Cannot find type {}".format(type))
         else:
             return super().__new__(cls)
 
