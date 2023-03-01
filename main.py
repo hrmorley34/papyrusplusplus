@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import argparse
-import colorama
-from contextlib import contextmanager
 import logging
-from logging import debug, info, warning
-from pathlib import Path
 import subprocess
 import sys
+from contextlib import contextmanager
+from logging import debug, info, warning
+from pathlib import Path
 from typing import Any, Callable, List, Optional, TextIO, Tuple
+
+import colorama
 import yaml
 
 from papyruslib.bases import Definition

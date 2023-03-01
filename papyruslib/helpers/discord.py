@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
-from discord import Embed, SyncWebhook
 from functools import lru_cache
 from typing import Optional
 
-from ..bases import Definition, Webhook as BaseWebhook
+from discord import Embed, SyncWebhook
 
+from ..bases import Definition
+from ..bases import Webhook as BaseWebhook
 
 TIMEFILE = "chunks.sqlite"
 

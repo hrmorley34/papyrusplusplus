@@ -1,27 +1,16 @@
+import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from functools import lru_cache
 from hashlib import md5
-import json
 from pathlib import Path
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Type, Union
+from uuid import UUID, uuid4
+
 from pydantic import BaseModel
 from pydantic.class_validators import validator
 from pydantic.fields import Field, PrivateAttr
-from typing import (
-    Any,
-    ClassVar,
-    Dict,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-    List,
-)
-from uuid import UUID, uuid4
-
 from pydantic.types import conlist
-
 
 cache = lru_cache(maxsize=None)
 

@@ -1,11 +1,12 @@
 import logging
-from pathlib import Path
-from pydantic.class_validators import validator
 import shlex
 import subprocess
+from pathlib import Path
 from typing import List, Optional, Union
 
-from ..bases import Remote, Definition
+from pydantic.class_validators import validator
+
+from ..bases import Definition, Remote
 
 
 class RsyncRemote(Remote, spec_name="rsync"):

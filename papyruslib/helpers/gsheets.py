@@ -1,9 +1,10 @@
-from googleapiclient.discovery import build
-from itertools import repeat
 import logging
 import os
-from pydantic import BaseModel
+from itertools import repeat
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+
+from googleapiclient.discovery import build
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from googleapiclient._apis.sheets.v4.resources import (
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
         Spreadsheet as GSpreadsheet,
     )
 
-from ..bases import Spreadsheet, PlayerMarker, Definition
+from ..bases import Definition, PlayerMarker, Spreadsheet
 
 
 def hexify(d: "Color") -> str:

@@ -1,2 +1,5 @@
 -r requirements.txt
 google-api-python-client-stubs ~= 1.9
+black
+isort
+flake8
