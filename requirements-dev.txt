@@ -1,5 +1,6 @@
 -r requirements.txt
 google-api-python-client-stubs ~= 1.9
+pre-commit
 black
 isort
 flake8
