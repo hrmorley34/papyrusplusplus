@@ -4,7 +4,18 @@ from collections.abc import Mapping
 from functools import lru_cache
 from hashlib import md5
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
@@ -182,7 +193,10 @@ class OptionsType(List[str]):
         field_schema.update(anyOf=[{"type": "array", "items": {}}, {"type": "object"}])
 
 
-TaskList = conlist(OptionsType, min_items=1)
+if TYPE_CHECKING:
+    TaskList = List[OptionsType]
+else:
+    TaskList = conlist(OptionsType, min_items=1)
 
 
 class Definition(BaseModel):
