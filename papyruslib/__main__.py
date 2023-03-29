@@ -6,12 +6,12 @@ import sys
 from contextlib import contextmanager
 from logging import debug, info, warning
 from pathlib import Path
-from typing import Any, Callable, List, Optional, TextIO, Tuple
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, TextIO, Tuple
 
 import colorama
 import yaml
 
-from papyruslib.bases import Definition
+from .bases import Definition
 
 
 def existing_path(p: str) -> Path:
@@ -80,7 +80,7 @@ class ArgNamespace(argparse.ArgumentParser):
     definition: List[Path]
     verbosity: int
 
-    papyrus: Path
+    papyrus: Optional[Path]
 
     dry_run: bool
     sheet_only: bool
@@ -164,7 +164,13 @@ def initialise_output():
     return LOGG
 
 
-class Logg(logging.StreamHandler):
+if TYPE_CHECKING:
+    _LoggBase = logging.StreamHandler[TextIO]
+else:
+    _LoggBase = logging.StreamHandler
+
+
+class Logg(_LoggBase):
     _outcolour = colorama.Style.BRIGHT
     _errcolour = colorama.Style.BRIGHT + colorama.Fore.RED
     _outsuffix = colorama.Style.RESET_ALL
@@ -315,5 +321,5 @@ def main(args: Optional[List[str]] = None):
 
 
 if __name__ == "__main__":
-    LOGG = initialise_output()
+    initialise_output()
     main()

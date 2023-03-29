@@ -1,4 +1,4 @@
-from . import helpers
+from . import components
 from .bases import Definition, PlayerMarker, Remote, Spreadsheet, Webhook
 
 __all__ = [
@@ -8,5 +8,5 @@ __all__ = [
     "Remote",
     "Webhook",
     "Definition",
-    "helpers",
+    "components",
 ]
